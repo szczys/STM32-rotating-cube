@@ -32,6 +32,8 @@ SECTIONS
         *(.glue_7)                 /* TBD - needed ? */
         *(.glue_7t)                /* TBD - needed ? */
 
+	KEEP (*(.init))
+	
 	    . = ALIGN(4);
         _etext = .;
 	    /* This is used by the startup in order to initialize the .data section */

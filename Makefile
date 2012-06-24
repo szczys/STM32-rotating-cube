@@ -7,6 +7,8 @@ PROJ_NAME=main
 # Location of the Libraries folder from the STM32F0xx Standard Peripheral Library
 STD_PERIPH_LIB=Libraries
 
+LDSCRIPT_INC=ldscripts
+
 # location of OpenOCD Board .cfg files (only used with 'make program')
 OPENOCD_BOARD_DIR=/usr/share/openocd/scripts/board
 
@@ -19,9 +21,14 @@ OPENOCD_PROC_FILE=extra/stm32f0-openocd.cfg
 
 CC=arm-none-eabi-gcc
 OBJCOPY=arm-none-eabi-objcopy
+OBJDUMP=arm-none-eabi-objdump
+SIZE=arm-none-eabi-size
 
-CFLAGS  = -g -std=c99 -O2 -Wall -TDevice/stm32_flash.ld
-CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m0 -march=armv6s-m
+CFLAGS  = -Wall -g -std=c99 -Os  
+#CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m0 -march=armv6s-m
+CFLAGS += -mlittle-endian -mcpu=cortex-m0  -march=armv6-m -mthumb
+CFLAGS += -ffunction-sections -fdata-sections
+CFLAGS += -Wl,--gc-sections -Wl,-Map=$(PROJ_NAME).map
 
 ###################################################
 
@@ -30,11 +37,15 @@ vpath %.a $(STD_PERIPH_LIB)
 
 ROOT=$(shell pwd)
 
-CFLAGS += -Iinc -I$(STD_PERIPH_LIB) -I$(STD_PERIPH_LIB)/CMSIS/Device/ST/STM32F0xx/Include
-CFLAGS += -I$(STD_PERIPH_LIB)/CMSIS/Include -I$(STD_PERIPH_LIB)/STM32F0xx_StdPeriph_Driver/inc
-CFLAGS += -include$(STD_PERIPH_LIB)/stm32f0xx_conf.h
+CFLAGS += -I inc -I $(STD_PERIPH_LIB) -I $(STD_PERIPH_LIB)/CMSIS/Device/ST/STM32F0xx/Include
+CFLAGS += -I $(STD_PERIPH_LIB)/CMSIS/Include -I $(STD_PERIPH_LIB)/STM32F0xx_StdPeriph_Driver/inc
+CFLAGS += -include $(STD_PERIPH_LIB)/stm32f0xx_conf.h
 
 SRCS += Device/startup_stm32f0xx.s # add startup file to build
+
+# need if you want to build with -DUSE_CMSIS 
+#SRCS += stm32f0_discovery.c
+#SRCS += stm32f0_discovery.c stm32f0xx_it.c
 
 OBJS = $(SRCS:.c=.o)
 
@@ -42,7 +53,7 @@ OBJS = $(SRCS:.c=.o)
 
 .PHONY: lib proj
 
-all: lib proj program
+all: lib proj
 
 lib:
 	$(MAKE) -C $(STD_PERIPH_LIB)
@@ -50,20 +61,23 @@ lib:
 proj: 	$(PROJ_NAME).elf
 
 $(PROJ_NAME).elf: $(SRCS)
-	$(CC) $(CFLAGS) $^ -o $@ -L$(STD_PERIPH_LIB) -lstm32f0
+	$(CC) $(CFLAGS) $^ -o $@ -L$(STD_PERIPH_LIB) -lstm32f0 -L$(LDSCRIPT_INC) -Tstm32f0.ld
 	$(OBJCOPY) -O ihex $(PROJ_NAME).elf $(PROJ_NAME).hex
 	$(OBJCOPY) -O binary $(PROJ_NAME).elf $(PROJ_NAME).bin
+	$(OBJDUMP) -St $(PROJ_NAME).elf >$(PROJ_NAME).lst
+	$(SIZE) $(PROJ_NAME).elf
 	
 program: $(PROJ_NAME).bin
 	openocd -f $(OPENOCD_BOARD_DIR)/stm32f0discovery.cfg -f $(OPENOCD_PROC_FILE) -c "stm_flash `pwd`/$(PROJ_NAME).bin" -c shutdown
 
 clean:
-	find ./ -name '*~' | xargs rm -f
+	find ./ -name '*~' | xargs rm -f	
 	rm -f *.o
 	rm -f $(PROJ_NAME).elf
 	rm -f $(PROJ_NAME).hex
 	rm -f $(PROJ_NAME).bin
 	rm -f $(PROJ_NAME).map
+	rm -f $(PROJ_NAME).lst
 
-distclean: clean
-	$(MAKE) -C $(STD_PERIPH_LIB) clean #Cleans out the peripheral library
+reallyclean: clean
+	$(MAKE) -C $(STD_PERIPH_LIB) clean
