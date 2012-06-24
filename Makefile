@@ -58,8 +58,12 @@ program: $(PROJ_NAME).bin
 	openocd -f $(OPENOCD_BOARD_DIR)/stm32f0discovery.cfg -f $(OPENOCD_PROC_FILE) -c "stm_flash `pwd`/$(PROJ_NAME).bin" -c shutdown
 
 clean:
+	find ./ -name '*~' | xargs rm -f
 	rm -f *.o
 	rm -f $(PROJ_NAME).elf
 	rm -f $(PROJ_NAME).hex
 	rm -f $(PROJ_NAME).bin
 	rm -f $(PROJ_NAME).map
+
+distclean: clean
+	$(MAKE) -C $(STD_PERIPH_LIB) clean #Cleans out the peripheral library
