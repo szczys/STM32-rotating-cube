@@ -1,3 +1,6 @@
+# NOTE: I'm using Libraries, Linkers, and OpenOCD files found in this repo:
+#       https://github.com/szczys/stm32f0-discovery-basic-template
+
 # put your *.o targets here, make should handle the rest!
 SRCS = main.c system_stm32f0xx.c 3595-LCD-Driver.c STM32-Debounce.c
 
@@ -5,15 +8,16 @@ SRCS = main.c system_stm32f0xx.c 3595-LCD-Driver.c STM32-Debounce.c
 PROJ_NAME=main
 
 # Location of the Libraries folder from the STM32F0xx Standard Peripheral Library
-STD_PERIPH_LIB=Libraries
+STD_PERIPH_LIB=../f0-template/Libraries
 
-LDSCRIPT_INC=ldscripts
+# Location of the linker scripts
+LDSCRIPT_INC=../f0-template/Device/ldscripts
 
 # location of OpenOCD Board .cfg files (only used with 'make program')
 OPENOCD_BOARD_DIR=/usr/share/openocd/scripts/board
 
 # Configuration (cfg) file containing programming directives for OpenOCD
-OPENOCD_PROC_FILE=extra/stm32f0-openocd.cfg
+OPENOCD_PROC_FILE=../f0-template/extra/stm32f0-openocd.cfg
 
 # that's it, no need to change anything below this line!
 
