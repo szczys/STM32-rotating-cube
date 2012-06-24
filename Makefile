@@ -22,8 +22,6 @@ OBJCOPY=arm-none-eabi-objcopy
 
 CFLAGS  = -g -std=c99 -O2 -Wall -TDevice/stm32_flash.ld
 CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m0 -march=armv6s-m
-CFLAGS += -ffunction-sections -fdata-sections
-CFLAGS += -nostdlib -Wl, --gc-sections -Wl, -Map=$(PROJ_NAME).map
 
 ###################################################
 

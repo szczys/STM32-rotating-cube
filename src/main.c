@@ -20,6 +20,8 @@
 #define white	0b11111111
 #define black	0b11111111
 
+
+/* SPI Definitions */
 #define SPIx                             SPI1
 #define SPIx_CLK                         RCC_APB2Periph_SPI1
 #define SPIx_GPIO_PORT                   GPIOA
@@ -34,7 +36,21 @@
 #define SPIx_NSS_PIN                     GPIO_Pin_4
 #define SPIx_NSS_SOURCE                  GPIO_PinSource4
 
-
+/* Button Debounce Definitions */
+//#define KEY_DDR		DDRB
+//#define KEY_PORT	PORTB
+#define KEY_PIN		GPIOA->IDR
+#define KEY0		0	//Mode button
+//#define KEY1		6	//Next
+//#define KEY2		5	//+
+//#define KEY3		4       //-
+//Debounce
+#define REPEAT_MASK   (1<<KEY0)   // repeat: key1, key2 
+#define REPEAT_START   50      // after 500ms 
+#define REPEAT_NEXT   20      // every 200ms
+volatile uint16_t key_press;
+volatile uint16_t key_state;
+volatile uint16_t key_rpt;
 
 //Variables
 unsigned char cursor_x = 0;	// Tracks cursor position (top-left corner)
@@ -50,6 +66,56 @@ void Hello_World(void);
 void _delay_ms(__IO uint32_t nTime);
 void TimingDelay_Decrement(void);
 
+/*--------------------------------------------------------------------------
+  FUNC: 8/1/11 - Used to read debounced button presses
+  PARAMS: A keymask corresponding to the pin for the button you with to poll
+  RETURNS: A keymask where any high bits represent a button press
+--------------------------------------------------------------------------*/
+unsigned char get_key_press( unsigned char key_mask )
+{
+  __disable_irq ();			// read and clear atomic !
+  key_mask &= key_press;	// read key(s)
+  key_press ^= key_mask;	// clear key(s)
+  __enable_irq ();
+  return key_mask;
+}
+
+/*--------------------------------------------------------------------------
+  FUNC: 8/1/11 - Used to check for debounced buttons that are held down
+  PARAMS: A keymask corresponding to the pin for the button you with to poll
+  RETURNS: A keymask where any high bits is a button held long enough for
+		its input to be repeated
+--------------------------------------------------------------------------*/
+unsigned char get_key_rpt( unsigned char key_mask ) 
+{ 
+  __disable_irq ();               // read and clear atomic ! 
+  key_mask &= key_rpt;                           // read key(s) 
+  key_rpt ^= key_mask;                           // clear key(s) 
+  __enable_irq (); 
+  return key_mask; 
+} 
+
+/*--------------------------------------------------------------------------
+  FUNC: 8/1/11 - Used to read debounced button released after a short press
+  PARAMS: A keymask corresponding to the pin for the button you with to poll
+  RETURNS: A keymask where any high bits represent a quick press and release
+--------------------------------------------------------------------------*/
+unsigned char get_key_short( unsigned char key_mask ) 
+{ 
+  __disable_irq ();         // read key state and key press atomic ! 
+  return get_key_press( ~key_state & key_mask ); 
+} 
+
+/*--------------------------------------------------------------------------
+  FUNC: 8/1/11 - Used to read debounced button held for REPEAT_START amount
+	of time.
+  PARAMS: A keymask corresponding to the pin for the button you with to poll
+  RETURNS: A keymask where any high bits represent a long button press
+--------------------------------------------------------------------------*/
+unsigned char get_key_long( unsigned char key_mask ) 
+{ 
+  return get_key_press( get_key_rpt( key_mask )); 
+} 
 
 void LCD_init(void)
 {
@@ -260,7 +326,6 @@ static void SPI_Config(void)
   SPI_InitStructure.SPI_NSS = SPI_NSS_Hard;
   SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
   SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
-  //SPI_InitStructure.SPI_CRCPolynomial = 7;
   
   SPI_Init(SPIx, &SPI_InitStructure);
   SPI_SSOutputCmd(SPIx, ENABLE);
@@ -389,20 +454,44 @@ void TimingDelay_Decrement(void)
 
 void SysTick_Handler(void) {
   static uint16_t tick = 0;
+  static uint16_t ten_ms_tick = 0;
 
   switch (tick++) {
-  	case 1000:
-  		tick = 0;
-  		GPIOC->ODR ^= (1 << 8);
-  		break;
+    case 1000:
+      tick = 0;
+      GPIOC->ODR ^= (1 << 8);
+      break;
   }
   
   TimingDelay_Decrement();
+  
+  if (ten_ms_tick++ > 9) {
+    ten_ms_tick = 0;
+  	
+    static unsigned char ct0, ct1, rpt;
+    uint16_t i;
+
+    i = key_state ^ KEY_PIN;    // key changed ?
+    ct0 = ~( ct0 & i );          // reset or count ct0
+    ct1 = ct0 ^ (ct1 & i);       // reset or count ct1
+    i &= ct0 & ct1;              // count until roll over ?
+    key_state ^= i;              // then toggle debounced state
+    key_press |= key_state & i;  // 0->1: key press detect
+
+    if( (key_state & REPEAT_MASK) == 0 )   // check repeat function 
+      rpt = REPEAT_START;      // start delay 
+    if( --rpt == 0 ){ 
+      rpt = REPEAT_NEXT;         // repeat delay 
+      key_rpt |= key_state & REPEAT_MASK; 
+    } 
+  
+  }
 }
 
 int main(void)
 {
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 	SPI_Config();
 	
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN; 	// enable the clock to GPIOC
@@ -424,11 +513,16 @@ int main(void)
 	StripedScreen();
 	Hello_World();
 
-/*
-	LCD_Out(0x01,1);
-	LCD_Out(0xFC,1);
-	LCD_Out(0x00,0);
-*/
-	while(1);
+	while(1)
+	{
+	  if( get_key_press( 1<<KEY0 )) { 
+	    static unsigned char but_temp = 0;
+	    if (but_temp++) {
+	      but_temp = 0;
+	      Hello_World();
+	    }
+	    else StripedScreen(); 
+	    }
+	}
 
 }
