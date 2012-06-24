@@ -2,15 +2,6 @@
 #include "3595-LCD-Driver.h"
 #include "main.h"
 
-/* ATTENTION: *************************************
-* main.h/main.c MUST implement a delay function
-* that allows for a delay passed in milliseconds!
-*
-* Define a macro pointing to that funciton here
-**************************************************/
-//#define LCD_DELAY_MS(x)    _delay_ms(x)
-
-
 //Variables
 unsigned char cursor_x = 0;	// Tracks cursor position (top-left corner)
 unsigned char cursor_y = 0;	// Tracks cursor position (top-left corner)

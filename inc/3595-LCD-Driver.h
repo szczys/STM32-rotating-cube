@@ -1,7 +1,13 @@
 #include "stm32f0xx_conf.h"
 #include "main.h"
 
-#define LCD_DELAY_MS(x)    _delay_ms(x)
+/* ATTENTION: *************************************
+* main.h/main.c MUST implement a delay function
+* that allows for a delay passed in milliseconds!
+*
+* Define a macro pointing to that funciton here
+**************************************************/
+#define LCD_DELAY_MS(x)           _delay_ms(x)
 
 //LCD Definitions
 #define LCD_RST_PORT              GPIOC->ODR
@@ -10,8 +16,6 @@
 #define LCD_RST_MODER             GPIOC->MODER
 #define LCD_RST_MODER_BIT         (1<<6)
 #define LCD_RST                   (1<<3)
-
-
 
 #define PAGE_SIZE	97
 #define ROW_SIZE	66

@@ -48,41 +48,41 @@ void SysTick_Handler(void) {
 
 int main(void)
 {
-	SysTick_Config(SystemCoreClock/1000);
-	
-	SPI_Config();
+  SysTick_Config(SystemCoreClock/1000);
+  
+  SPI_Config();
 
-	//Setup output for blinking blue LED	
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN; 	// enable the clock to GPIOC
-	GPIOC->MODER |= (1<<16);
-	
-	LCD_init();
-	
-	
-	unsigned char ballX = 0;
-	//Make playing area
-	Draw_Box(0,0,97,66,white);
-	//Make 'ball'
-	Draw_Box(ballX,32,ballX+2,34,blue);
-	
-	while(ballX++<(PAGE_SIZE-2)){
-	  _delay_ms(100);
-	  
-	  Draw_Box(ballX+2,32,ballX+2,34,blue);
-	  Draw_Box(ballX-1,32,ballX-1,34,white);
-	}
-	
+  //Setup output for blinking blue LED  
+  RCC->AHBENR |= RCC_AHBENR_GPIOCEN;   // enable the clock to GPIOC
+  GPIOC->MODER |= (1<<16);
+  
+  LCD_init();
+  
+  
+  unsigned char ballX = 0;
+  //Make playing area
+  Draw_Box(0,0,97,66,white);
+  //Make 'ball'
+  Draw_Box(ballX,32,ballX+2,34,blue);
+  
+  while(ballX++<(PAGE_SIZE-2)){
+    _delay_ms(100);
+    
+    Draw_Box(ballX+2,32,ballX+2,34,blue);
+    Draw_Box(ballX-1,32,ballX-1,34,white);
+  }
+  
 
-	while(1)
-	{
-	  if( get_key_press( 1<<KEY0 )) { 
-	    static unsigned char but_temp = 0;
-	    if (but_temp++) {
-	      but_temp = 0;
-	      Draw_Box(0,0,97,66,green);
-	    }
-	    else Draw_Box(10,10,19,19,white); 
-	    }
-	}
+  while(1)
+  {
+    if( get_key_press( 1<<KEY0 )) { 
+      static unsigned char but_temp = 0;
+      if (but_temp++) {
+        but_temp = 0;
+        Draw_Box(0,0,97,66,green);
+      }
+      else Draw_Box(10,10,19,19,white); 
+      }
+  }
 
 }
