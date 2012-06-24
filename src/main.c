@@ -8,8 +8,8 @@
 #define LCD_CS  (1<<2)
 #define LCD_RST (1<<3)
 
-#define page_size	97
-#define row_size	66
+#define PAGE_SIZE	97
+#define ROW_SIZE	66
 
 #define red	0b00000111
 #define yellow	0b00111111
@@ -119,13 +119,9 @@ unsigned char get_key_long( unsigned char key_mask )
 
 void LCD_init(void)
 {
-  //LCD_DDR |= (LCD_CLK | LCD_SIO | LCD_CS | LCD_RST);
-
-  LCD_PORT |= (LCD_CLK | LCD_SIO | LCD_CS);
-
   //Hardware Reset
   LCD_PORT &= ~LCD_RST;
-  _delay_ms(1);
+  _delay_ms(5);
   LCD_PORT |= LCD_RST;
   _delay_ms(5);
 
@@ -240,42 +236,20 @@ void LCD_init(void)
 //****************************************
 }
 
-//LCD_Out function comes from source code found here:
-//http://hobbyelektronik.org/Elo/AVR/3510i/index.htm
-//Unfortunately this is the only way I know to attribute
-//this code to the writer.
+/*--------------------------------------------------------------------------
+  FUNC: 6/23/12 - Writes 9-bits on SPI bus
+  PARAMS: 8-bits of data, 1 to signify that the data is an LCD command
+  RETURNS: None
+--------------------------------------------------------------------------*/
 void LCD_Out(unsigned char Data, unsigned char isCmd) 
 {
-
-
-	while(SPI_I2S_GetFlagStatus(SPIx, SPI_I2S_FLAG_TXE) == RESET) ;;
-	
-	if (isCmd) {
-		SPI_I2S_SendData16(SPIx, (uint16_t)Data);
-	
-	}
-	else SPI_I2S_SendData16(SPIx, ((uint16_t)Data | (1<<8)));
-
-	
-	//SPI_I2S_SendData16(SPIx, 0x01FF);
-	
-	/*
-	if(isCmd) LCD_PORT |= LCD_CS;  
-	LCD_PORT &= ~(LCD_CLK|LCD_CS);  //Clock and CS low
-
-	LCD_PORT |= LCD_SIO;		//SData High
-	if(isCmd) LCD_PORT &= ~LCD_SIO; //If it is a command, SData Low
-
-	LCD_PORT |= LCD_CLK;		//Clock High
-
-	for(char x=0; x<8; x++)	{
-		LCD_PORT &= ~(LCD_SIO|LCD_CLK);		//Clock and SData low
-		if(Data & 128) LCD_PORT |= LCD_SIO;  	// Mask MSB - SData high if it is a 1
-		LCD_PORT |= LCD_CLK;			//Clock High
-		Data=Data<<1;				//Shift bits 1 left (new MSB to be read)
-		
-	}
-	*/
+  //Wait until transmit buffer is ready
+  //TODO: Add timeout just in case
+  while(SPI_I2S_GetFlagStatus(SPIx, SPI_I2S_FLAG_TXE) == RESET) ;;
+  //Commands start with 0
+  if (isCmd) SPI_I2S_SendData16(SPIx, (uint16_t)Data);
+  //Data starts with 1
+  else SPI_I2S_SendData16(SPIx, ((uint16_t)Data | (1<<8)));
 }
 
 static void SPI_Config(void)
@@ -289,12 +263,6 @@ static void SPI_Config(void)
 
 
   /* SPI pin mappings */
-/*
-  GPIO_PinAFConfig(SPIx_GPIO_PORT, SPIx_SCK_SOURCE, SPIx_AF);
-  GPIO_PinAFConfig(SPIx_GPIO_PORT, SPIx_MOSI_SOURCE, SPIx_AF);
-  //GPIO_PinAFConfig(SPIx_GPIO_PORT, SPIx_MISO_SOURCE, SPIx_AF);
-  GPIO_PinAFConfig(SPIx_GPIO_PORT, SPIx_NSS_SOURCE, SPIx_AF);
-*/
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_DOWN;
@@ -330,29 +298,6 @@ static void SPI_Config(void)
   SPI_Init(SPIx, &SPI_InitStructure);
   SPI_SSOutputCmd(SPIx, ENABLE);
   SPI_Cmd(SPIx, ENABLE);
-  
-  //1. Select the serial clock baud rate using the BR[2:0] bits (see Note Note:)
-  
-  //2. Set the CPOL and CPHA bits combination to define one of the four relationships
-  //  between the data transfer and the serial clock (see Figure 259 and Note )
-  //3. Select a transmission mode by configuring RXONLY, BIDIOE and BIDIMODE (see
-  //  Note ).
-  //4. Set the DS bit in order to select the data length for the transfer.
-  //5. Configure the LSBFIRST bit to define the frame format (see Note ).
-  //6. Set SSM, SSI and SSOE according to application needs. In master mode, the internal
-  //  NSS signal must stay at a high level during the complete sequence (see
-  // Section 26.3.4: Slave select (NSS) pin management on page 639). In slave mode, the
-  //internal NSS signal must stay at a low level during the complete sequence (see Note ).
-  //7. Set the FRF bit if the TI protocol is required (see Section 26.4.2: TI mode on page 649).
-  //8. Set the NSSP bit if the NSS pulse mode between two data units is required. The CHPA
-  //  bit must be set to 1 for this configuration (see Note ).
-  //9. Set the FRXTH bit. The RXFIFO threshold must be aligned to the read access size for
-  //  the SPIx_DR register.
-  //10. Initialize LDMA_TX and LDMA_RX bits if DMA is used.
-  //11. Set the CRC polynomial to “in” and set the CRCEN bit if CRC is needed.
-  //12. Set the MSTR bit while the NSS internal signal is at a high level (see Note Note: and
-  //Section 26.3.4: Slave select (NSS) pin management)
-  //13. Enable the SPI by setting the SPE bit (see Note ).
 
 }
 
@@ -431,6 +376,43 @@ void Hello_World(void)
     }
 }
 
+/*--------------------------------------------------------------------------
+  FUNC: 6/23/12 - Draws a colored box (infilled) on the screen
+  PARAMS: x,y coordinates for upper left and lower right 
+          corners of the screen, color (BBGGGRRR)
+  RETURNS: None
+--------------------------------------------------------------------------*/
+void Draw_Box(uint8_t upperX, uint8_t upperY, uint8_t lowerX, uint8_t lowerY, uint8_t color)
+{
+
+  if (upperX >= PAGE_SIZE) upperX = PAGE_SIZE-1;
+  if (upperY >= ROW_SIZE) upperY = ROW_SIZE-1;
+  if (lowerX > PAGE_SIZE) lowerX = PAGE_SIZE;
+  if (lowerY > ROW_SIZE) lowerY = ROW_SIZE;
+  uint16_t pixel_calc = (lowerX-upperX+1)*(lowerY-upperY+1);
+
+  LCD_Out(0x2A, 1); //Set Column location
+  LCD_Out(upperX, 0);
+  LCD_Out(lowerX, 0);
+  LCD_Out(0x2B, 1); //Set Row location
+  LCD_Out(upperY, 0);
+  LCD_Out(lowerY, 0);
+  LCD_Out(0x2C, 1); //Write Data
+  for (int i=0; i<pixel_calc; i++) LCD_Out(color, 0);
+}
+
+void Fill_Screen(unsigned char color)
+{
+  LCD_Out(0x2A, 1); //Set Column location
+  LCD_Out(0, 0);
+  LCD_Out(97, 0);
+  LCD_Out(0x2B, 1); //Set Row location
+  LCD_Out(0, 0);
+  LCD_Out(66, 0);
+  LCD_Out(0x2C, 1); //Write Data
+  for (int i=0; i<6566; i++) LCD_Out(color, 0);
+}
+
 void _delay_ms(__IO uint32_t nTime)
 {
   TimingDelay = nTime;
@@ -490,25 +472,17 @@ void SysTick_Handler(void) {
 
 int main(void)
 {
+	SysTick_Config(SystemCoreClock/1000);
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 	SPI_Config();
 	
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN; 	// enable the clock to GPIOC
 						//(RM0091 lists this as IOPCEN, not GPIOCEN)
-
+	GPIOC->MODER |= (1<<16) | (1<<6);
+	//GPIOC->SPEEDR 
+	LCD_PORT |= LCD_RST;
 	
-	GPIOC->MODER = (1<<16) | (1<<6) | (1<<4) | (1<<2) | (1<<0);
-	GPIOC->ODR |= LCD_CLK | LCD_SIO | LCD_CS | LCD_RST;
-	
-
-	SysTick_Config(SystemCoreClock/1000);
-	
-	GPIOC->ODR &= ~LCD_CS;
-	_delay_ms(5);
 	LCD_init();
-	_delay_ms(5);
-	GPIOC->ODR |= LCD_CS;
 	
 	StripedScreen();
 	Hello_World();
@@ -519,9 +493,9 @@ int main(void)
 	    static unsigned char but_temp = 0;
 	    if (but_temp++) {
 	      but_temp = 0;
-	      Hello_World();
+	      Draw_Box(0,0,97,66,green);
 	    }
-	    else StripedScreen(); 
+	    else Draw_Box(10,10,19,19,white); 
 	    }
 	}
 

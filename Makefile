@@ -42,7 +42,7 @@ OBJS = $(SRCS:.c=.o)
 
 .PHONY: lib proj
 
-all: lib proj
+all: lib proj program
 
 lib:
 	$(MAKE) -C $(STD_PERIPH_LIB)
