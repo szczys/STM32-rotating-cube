@@ -27,7 +27,7 @@
 #define blue	0b11000000
 #define magenta	0b11000111
 #define white	0b11111111
-#define black	0b11111111
+#define black	0b00000000
 
 /* SPI Definitions */
 #define SPIx                             SPI1
